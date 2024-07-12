@@ -1,0 +1,11 @@
+streamlit
+requests
+json
+pandas
+sklearn
+matplotlib
+numpy
+geopy
+folium
+reportlab
+PyPDF2
