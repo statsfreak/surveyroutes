@@ -214,7 +214,6 @@ class Assignment:
     def plot_map_cluster(self, cluster_num):
         # Remember to change from 1-index to 0-index
         dataset = self.__optimised_routes[cluster_num]
-        print(f"\nplotting dataset: {dataset}")
         colormap = plt.get_cmap('tab20', len(self.__clusters))
         color = colormap(cluster_num)
         color = [int(c * 255) for c in color[:3]]
