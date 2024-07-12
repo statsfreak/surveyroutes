@@ -1,5 +1,6 @@
 streamlit
 streamlit-folium
+openpyxl
 requests
 pandas
 scikit-learn
