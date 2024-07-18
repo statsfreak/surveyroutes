@@ -20,6 +20,16 @@ def show_download_button(filename):
             file_name=filename,
             mime="application/pdf")
 
+@st.experimental_fragment
+def show_locations_excel_template(input_data, filename, button_label):
+    df = pd.DataFrame(input_data)
+    df.to_excel(filename, index=False)
+    with open(filename, "rb") as file:
+        st.download_button(label=button_label,
+                       data = file,
+                       file_name = filename,
+                       mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
 ### Initialise the clustering parameters form and the surveyor form in the session state ###
 if "clustering_parameters" not in st.session_state:
     st.session_state["clustering_parameters"] = None
@@ -28,6 +38,20 @@ if "surveyor_form" not in st.session_state:
 
 ### Title of the Streamlit app ###
 st.title("Survey Locations Clustering and Route Optimisation Tool")
+
+# Add templates for the locations and surveyors' data
+st.subheader('Input Data Templates')
+# Locations file template
+st.text('Locations Data Template')
+locations_template = {'Block':[], 'Street name': [], 'Floor': [], 'Unit': [],	'Postal Code': []}
+locations_filename = './templates/locations.xlsx'
+locations_button_label = 'Download Template for Locations Data'
+show_locations_excel_template(locations_template, locations_filename, locations_button_label)
+st.text('Surveyors\' Data Template')
+surveyors_template = {'Name':[], 'Start Address': [], 'End Address': []}
+surveyors_filename = './templates/surveyors.xlsx'
+surveyors_button_label = 'Download Template for Surveyors Data'
+show_locations_excel_template(surveyors_template, surveyors_filename, surveyors_button_label)
 
 ### Create form for the clustering parameters ###
 submission_form = st.form(key='submission')
