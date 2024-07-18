@@ -39,19 +39,12 @@ if "surveyor_form" not in st.session_state:
 ### Title of the Streamlit app ###
 st.title("Survey Locations Clustering and Route Optimisation Tool")
 
-# Add templates for the locations and surveyors' data
-st.subheader('Input Data Templates')
 # Locations file template
 st.text('Locations Data Template')
 locations_template = {'Block':[], 'Street name': [], 'Floor': [], 'Unit': [],	'Postal Code': []}
 locations_filename = './templates/locations.xlsx'
 locations_button_label = 'Download Template for Locations Data'
 show_locations_excel_template(locations_template, locations_filename, locations_button_label)
-st.text('Surveyors\' Data Template')
-surveyors_template = {'Name':[], 'Start Address': [], 'End Address': []}
-surveyors_filename = './templates/surveyors.xlsx'
-surveyors_button_label = 'Download Template for Surveyors Data'
-show_locations_excel_template(surveyors_template, surveyors_filename, surveyors_button_label)
 
 ### Create form for the clustering parameters ###
 submission_form = st.form(key='submission')
@@ -148,6 +141,11 @@ if st.session_state['clustering_parameters']:
                 start_addresses.append(start_address_val)
                 end_addresses.append(end_address_val)            
         surveyor_submit = st.form_submit_button("Submit surveyors' info")
+    st.text('Surveyors\' Data Template')
+    surveyors_template = {'Name':[], 'Start Address': [], 'End Address': []}
+    surveyors_filename = './templates/surveyors.xlsx'
+    surveyors_button_label = 'Download Template for Surveyors Data'
+    show_locations_excel_template(surveyors_template, surveyors_filename, surveyors_button_label)
     # Upon submission of the surveyor information
     if surveyor_submit:
         # Check whether API key has been submission
