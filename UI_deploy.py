@@ -12,7 +12,7 @@ def create_assignment(max_cluster_size, max_walking_time, max_intra_cluster_dist
     return assignment
 
 # Create download button for the pdf sheet
-@st.experimental_fragment
+@st.fragment
 def show_download_button(filename):
     with open(filename, "rb") as file:
         st.download_button(label=f"Download Directions for all clusters",
@@ -20,7 +20,7 @@ def show_download_button(filename):
             file_name=filename,
             mime="application/pdf")
 
-@st.experimental_fragment
+@st.fragment
 def show_locations_excel_template(input_data, filename, button_label):
     df = pd.DataFrame(input_data)
     df.to_excel(filename, index=False)
