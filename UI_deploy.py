@@ -163,9 +163,10 @@ if st.session_state['clustering_parameters']:
                 df = pd.read_excel(surveyor_file_upload)
             # Check that file contains surveyor information for all clusters
             if len(df) != assignment.get_num_clusters():
-                st.error(f'Please submit the surveyor information for {assignment.get_num_clusters()} surveyors')
+                st.error(f"1) No. of surveyors information submitted: {len(df)}\n\nNo. of additional surveyors details required: {assignment.get_num_clusters() - len(df)}")
                 st.stop()
             df.columns = df.columns.str.lower()
+            df = df.fillna('')
             surveyor_names = list(df['name'])
             start_addresses = list(df['start address'])
             end_addresses = list(df['end address'])
