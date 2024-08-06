@@ -1,8 +1,8 @@
 import requests
 import json
 import pandas as pd
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.metrics import silhouette_score
+from sklearn.cluster import AgglomerativeClustering, SpectralClustering
+from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
 import matplotlib.pyplot as plt
 from geopy.distance import distance
 import numpy as np
@@ -32,6 +32,7 @@ class Assignment:
         self.__widest_cluster = None # Cluster object with the largest intra-cluster distance 
         self.__combined_cluster_map = None # Map showing the clusterd locations
         self.__optimised_routes = None # Dataframe of the optimised routes
+        self.__surveyor_df = None
 
     def get_optimised_routes(self):
         return self.__optimised_routes
@@ -147,10 +148,19 @@ class Assignment:
         # Get the maximum intra-cluster distance and the cluster that has the largest intra-cluster distance
         max_distance, widest_cluster = self._check_cluster_size(self.__dataset)
         # Increase the number of clusters and re-cluster if the maximum intra-cluster distance or number of cases per cluster exceeds threshold
+        i = 0
         while(max_distance > self.__MAX_CLUSTER_DISTANCE or max(counts) > self.__MAX_CLUSTER_SIZE):
             self.__NUM_CLUSTERS += 1
             counts = self._cluster_helper(self.__dataset)
             max_distance, widest_cluster = self._check_cluster_size(self.__dataset)
+            i += 1
+        # Calculate the clustering scores
+        X = self.__dataset[['X', 'Y']]
+        print(X)
+        address = self.__dataset['Full Address']
+        labels = self.__dataset['cluster']
+        print(labels)
+
         # print('Clustering completed')
         # print(f'Total number of locations: {len(self.__dataset)}')
         # print(f'Total number of clusters: {self.__NUM_CLUSTERS}')
@@ -185,10 +195,13 @@ class Assignment:
     def _cluster_helper(self, df):
         '''Helper function to perform clustering of the dataset'''
         X = df[['X', 'Y']]
-        ac = AgglomerativeClustering(self.__NUM_CLUSTERS)
+        # ac = SpectralClustering(n_clusters=self.__NUM_CLUSTERS, affinity='nearest_neighbors', assign_labels='kmeans')
+        ac = AgglomerativeClustering(n_clusters=self.__NUM_CLUSTERS)
+        # ac = AgglomerativeClustering(n_clusters=None, linkage='ward', distance_threshold=7000, metric='euclidean')
         df['cluster'] = ac.fit_predict(X)
         # Count the number of cases for each cluster
         counts = np.bincount(df['cluster'])
+        # self.__NUM_CLUSTERS = max(counts)
         return counts
 
     def _create_all_clusters(self, df):
@@ -363,14 +376,40 @@ class Assignment:
         with open("./pdfs/combined_survey_locations.pdf", 'wb') as output_pdf:
             pdf_writer.write(output_pdf)
 
-    def generate_combined_route_df(self):
+    def generate_combined_route_df(self, filepath):
         ''' Function to generate the combined optimised route information for all clusters'''
         combined_df = []
         for cluster in self.__clusters:
             combined_df.append(cluster.save_route_df())
         combined_df = pd.concat(combined_df, ignore_index=True)
-        combined_df.to_excel('./clustercsv/combined_cluster_data.xlsx')
+        combined_df.to_excel(filepath)
         return
+    
+    def generate_cluster_info(self, filepath):
+        '''Function to generate the assigned cluster for each location before route optimisation'''
+        df = self.__dataset
+        df['cluster'] = df['cluster'] + 1
+        df.to_excel(filepath)
+
+    def create_surveyor_df_and_assign(self, filepath):
+        '''Function to create the surveyor dataframe and assign the surveyors to the clusters'''
+        if filepath.endswith('.csv'):
+            surveyor_df = pd.read_csv(filepath)
+        elif filepath.endswith('xlsx'):
+            surveyor_df = pd.read_excel(filepath)
+        else:
+            print('Please use a csv or xlsx file')
+        surveyor_df.columns = surveyor_df.columns.str.lower()
+        surveyor_df = surveyor_df.fillna('')
+        surveyor_names = list(surveyor_df['name'])
+        start_addresses = list(surveyor_df['start address'].str.replace(',', '').str.replace('(', '').str.replace(')', ''))
+        end_addresses = list(surveyor_df['end address'].str.replace(',', '').str.replace('(', '').str.replace(')', ''))
+        self.assign_all_surveyors(surveyor_names, start_addresses, end_addresses)
+        self.__surveyor_df = surveyor_df
+
+    def get_surveyor_df(self):
+        return self.__surveyor_df
+
 
 ''' Class Definition for each Cluster object'''
 class Cluster:
@@ -433,8 +472,16 @@ class Cluster:
         waypoints = self.__locations
         waypoints_str = '|'.join(waypoints)
         mode='walking'
-        url = f'https://maps.googleapis.com/maps/api/directions/json?origin={origin}&destination={destination}&mode={mode}&waypoints=optimize:true|{waypoints_str}&key={api_key}'
-        response = requests.get(url)
+        endpoint = 'https://maps.googleapis.com/maps/api/directions/json'
+        params = {
+            'origin': origin,
+            'destination': destination,
+            'waypoints': waypoints_str,
+            'key': api_key,
+            'mode': mode,
+            'waypoints': f'optimize:true|{waypoints_str}'
+        }
+        response = requests.get(endpoint, params=params)
         # Parse the response
         if response.status_code == 200:
             directions = response.json()
@@ -457,6 +504,7 @@ class Cluster:
                 # Genrate the Google Maps link for each leg
                 urls = []
                 travel_modes = []
+                leg = []
                 for i in range(0, len(travel_times)):
                     time = travel_times[i]
                     start = start_locations[i]
@@ -464,6 +512,7 @@ class Cluster:
                     url, travel_mode = self._get_url(start, end, time)
                     urls.append(url)
                     travel_modes.append(travel_mode)
+                    leg.append(i + 1)
                 # print('Optimized route:')
                 # print(f'Start at: {origin}')
                 # for i, waypoint in enumerate(optimized_waypoints):
@@ -479,7 +528,7 @@ class Cluster:
             raise ValueError(f'HTTP Error: \n\nCheck start address: {origin}\n\nCheck end address: {destination}')
         
         # Generate the route dataframe for the cluster and return it
-        route_dict = {"Start Address": start_locations, "Start Latitude": start_lat, "Start Longitude": start_long, "End Address": end_locations, "End Latitude": end_lat, "End Longitude": end_long, "Travel distance (km)": distances, "Travel time (min)": travel_times, "Travel mode": travel_modes, "Maps Link": urls}
+        route_dict = {"Start Address": start_locations, "Start Latitude": start_lat, "Start Longitude": start_long, "End Address": end_locations, "End Latitude": end_lat, "End Longitude": end_long, "Travel distance (km)": distances, "Travel time (min)": travel_times, "Travel mode": travel_modes, "Maps Link": urls, "Leg": leg}
         self.__route_df = pd.DataFrame(route_dict)
         self.__is_optimised = True
         return self.__route_df
@@ -570,7 +619,7 @@ class Cluster:
         ''' Generate the optimised route dataframe for the cluster'''
         df = self.__route_df
         cluster_num_column = [self.__cluster_num + 1] * len(df)
-        df['cluster'] = cluster_num_column
+        df['Cluster'] = cluster_num_column
         df = df.drop('Maps Link', axis=1)
         df.to_excel(f'./clustercsv/cluster{self.__cluster_num+1}.xlsx')
         return df
